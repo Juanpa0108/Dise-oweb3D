@@ -1,5 +1,7 @@
 # Portafolio Web 3D
 
+**Sitio en producción:** <https://portafolio-web3d.vercel.app>
+
 Portafolio personal en 3D: una escena con físicas donde una esfera recorre los
 proyectos y abre su ficha. Construido con React 19, Vite, React Three Fiber,
 drei y Rapier.
