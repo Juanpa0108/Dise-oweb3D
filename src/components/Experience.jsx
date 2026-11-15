@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { OrbitControls, Sky, BakeShadows } from '@react-three/drei';
+import { OrbitControls, Sky } from '@react-three/drei';
 import { CuboidCollider, Physics, RigidBody } from '@react-three/rapier';
 import Lights from './Lights';
 import Floor from './Floor';
@@ -20,7 +20,7 @@ function CameraBounds({ cameraMode, controlsRef }) {
       const target = controlsRef.current.target;
       if (target.y < MIN_TARGET_Y) target.y = MIN_TARGET_Y;
     }
-  }, 1);
+  });
 
   return null;
 }
@@ -49,7 +49,11 @@ function BoundaryWalls() {
   );
 }
 
-export default function Experience({ cameraMode }) {
+export default function Experience({
+  cameraMode = 'free',
+  reducedMotion = false,
+  shadowMapSize = 2048,
+}) {
   const controlsRef = useRef();
 
   return (
@@ -58,7 +62,7 @@ export default function Experience({ cameraMode }) {
         <OrbitControls
           ref={controlsRef}
           makeDefault
-          enableDamping
+          enableDamping={!reducedMotion}
           dampingFactor={0.05}
           target={[0, 1.2, 0]}
           minPolarAngle={0.18}
@@ -79,16 +83,18 @@ export default function Experience({ cameraMode }) {
         azimuth={0.25}
       />
 
-      <Lights />
+      <Lights shadowMapSize={shadowMapSize} />
 
       <Physics gravity={[0, -9.81, 0]}>
         <Floor />
         <BoundaryWalls />
-        <ShowcaseGroup />
-        <Player position={[0, 1.5, 6]} cameraMode={cameraMode} />
+        <ShowcaseGroup reducedMotion={reducedMotion} />
+        <Player
+          position={[0, 1.5, 6]}
+          cameraMode={cameraMode}
+          reducedMotion={reducedMotion}
+        />
       </Physics>
-
-      <BakeShadows />
     </>
   );
 }

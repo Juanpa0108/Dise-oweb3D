@@ -1,9 +1,15 @@
-import { useRef, useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { RigidBody } from '@react-three/rapier';
 import * as THREE from 'three';
+import {
+  KEY_DIRECTIONS,
+  isEditableTarget,
+  movement,
+  resetMovement,
+} from '../lib/inputState';
 
-const ARENA_LIMIT = 18.4;
+const ARENA_LIMIT = 19.2;
 const BALL_RADIUS = 0.55;
 const MAX_SPEED = 8;
 const ACCEL = 28;
@@ -11,44 +17,61 @@ const FOLLOW_OFFSET = new THREE.Vector3(0, 5.2, 10);
 const followTarget = new THREE.Vector3();
 const lookTarget = new THREE.Vector3();
 
-export default function Player({ position = [0, 1.5, 4], cameraMode = 'free' }) {
+export default function Player({
+  position = [0, 1.5, 4],
+  cameraMode = 'free',
+  reducedMotion = false,
+}) {
   const bodyRef = useRef();
-  const keys = useRef({ forward: false, backward: false, left: false, right: false });
 
   useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'w' || e.key === 'ArrowUp') keys.current.forward = true;
-      if (e.key === 's' || e.key === 'ArrowDown') keys.current.backward = true;
-      if (e.key === 'a' || e.key === 'ArrowLeft') keys.current.left = true;
-      if (e.key === 'd' || e.key === 'ArrowRight') keys.current.right = true;
+    const handleKeyDown = (event) => {
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      if (isEditableTarget(event.target)) return;
+
+      const key = event.key.toLowerCase();
+      const direction = KEY_DIRECTIONS[key];
+      if (!direction) return;
+
+      // Evita que las flechas desplacen la página mientras se juega.
+      if (key.startsWith('arrow')) event.preventDefault();
+      movement[direction] = true;
     };
 
-    const handleKeyUp = (e) => {
-      if (e.key === 'w' || e.key === 'ArrowUp') keys.current.forward = false;
-      if (e.key === 's' || e.key === 'ArrowDown') keys.current.backward = false;
-      if (e.key === 'a' || e.key === 'ArrowLeft') keys.current.left = false;
-      if (e.key === 'd' || e.key === 'ArrowRight') keys.current.right = false;
+    const handleKeyUp = (event) => {
+      const key = event.key.toLowerCase();
+      const direction = KEY_DIRECTIONS[key];
+      if (!direction) return;
+      movement[direction] = false;
     };
+
+    const handleBlur = () => resetMovement();
 
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
+
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
+      resetMovement();
     };
   }, []);
 
-  useFrame((state, delta) => {
+  useFrame((state, rawDelta) => {
     if (!bodyRef.current) return;
 
+    const delta = Math.min(rawDelta, 0.05);
     const currentVel = bodyRef.current.linvel();
+
     let ax = 0;
     let az = 0;
 
-    if (keys.current.forward) az -= 1;
-    if (keys.current.backward) az += 1;
-    if (keys.current.left) ax -= 1;
-    if (keys.current.right) ax += 1;
+    if (movement.forward) az -= 1;
+    if (movement.backward) az += 1;
+    if (movement.left) ax -= 1;
+    if (movement.right) ax += 1;
 
     let vx = currentVel.x;
     let vz = currentVel.z;
@@ -59,12 +82,14 @@ export default function Player({ position = [0, 1.5, 4], cameraMode = 'free' }) 
       az /= len;
       vx += ax * ACCEL * delta;
       vz += az * ACCEL * delta;
+
       const hSpeed = Math.hypot(vx, vz);
       if (hSpeed > MAX_SPEED) {
         const scale = MAX_SPEED / hSpeed;
         vx *= scale;
         vz *= scale;
       }
+
       bodyRef.current.setLinvel({ x: vx, y: currentVel.y, z: vz }, true);
       bodyRef.current.wakeUp();
     }
@@ -75,7 +100,10 @@ export default function Player({ position = [0, 1.5, 4], cameraMode = 'free' }) 
     const clampedY = Math.max(ballPos.y, BALL_RADIUS);
 
     if (clampedX !== ballPos.x || clampedZ !== ballPos.z || clampedY !== ballPos.y) {
-      bodyRef.current.setTranslation({ x: clampedX, y: clampedY, z: clampedZ }, true);
+      bodyRef.current.setTranslation(
+        { x: clampedX, y: clampedY, z: clampedZ },
+        true
+      );
       bodyRef.current.setLinvel(
         {
           x: clampedX !== ballPos.x ? 0 : vx,
@@ -93,8 +121,12 @@ export default function Player({ position = [0, 1.5, 4], cameraMode = 'free' }) 
         clampedZ + FOLLOW_OFFSET.z
       );
 
-      const catchUp = Math.min(1, 12 * delta);
-      state.camera.position.lerp(followTarget, catchUp);
+      if (reducedMotion) {
+        state.camera.position.copy(followTarget);
+      } else {
+        const catchUp = Math.min(1, 12 * delta);
+        state.camera.position.lerp(followTarget, catchUp);
+      }
 
       if (state.camera.position.z < clampedZ + 4) {
         state.camera.position.z = clampedZ + 4;
@@ -117,7 +149,6 @@ export default function Player({ position = [0, 1.5, 4], cameraMode = 'free' }) 
       friction={0.4}
       linearDamping={1.2}
       angularDamping={0.4}
-      canSleep={false}
       ccd
     >
       <mesh castShadow receiveShadow>

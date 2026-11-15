@@ -1,25 +1,21 @@
 import ProjectShowcase from './ProjectShowcase';
+import { projects } from '../data/projects';
 
-export default function ShowcaseGroup() {
-    return (
-    <group position={1}>
-    <ProjectShowcase
-        position={[-4, 0, -2]}
-        title="Simulador de Robótica"
-        tag="Three.js"
-        description="Entorno de visualización de cinemática inversa con control de articulaciones."
-        repoUrl="[suspicious link removed]"
-      />
-
-      <ProjectShowcase
-        position={[4, 0, -2]}
-        title="Videojuego Web 3D"
-        tag="Rapier + R3F"
-        description="Juego de carreras y obstáculos con detección de colisiones e iluminación PBR."
-        repoUrl="[suspicious link removed]"
-      />
-      </group>
-    );
-
+export default function ShowcaseGroup({ reducedMotion = false }) {
+  return (
+    <group>
+      {projects.map((project) => (
+        <ProjectShowcase
+          key={project.id}
+          id={project.id}
+          position={project.position}
+          title={project.title}
+          tag={project.tag}
+          description={project.description}
+          repoUrl={project.repoUrl}
+          reducedMotion={reducedMotion}
+        />
+      ))}
+    </group>
+  );
 }
-
